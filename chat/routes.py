@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from openai import OpenAI, APIError, AuthenticationError, RateLimitError
 from config import Config
 from . import chat_bp
-from models.chat import create_chat, get_user_chats, get_chat
+from models.chat import create_chat, get_user_chats, get_chat, delete_chat, update_message_role_content
 from models.message import add_message, get_history, get_messages
 
 # ----------------------------------------------------------------------
@@ -19,7 +19,7 @@ client = OpenAI(
 MODEL = "deepseek-chat"
 
 
-# ----------------------------------------------------------------------
+# ----------------------------------]------------------------------------
 # CREATE CHAT
 # ----------------------------------------------------------------------
 # chat/routes.py
@@ -148,3 +148,39 @@ def list_messages(chat_id):
     if not get_chat(chat_id, user_id):
         return jsonify({"error": "Chat not found or not owned by you"}), 404
     return jsonify(get_messages(chat_id))
+
+
+
+# ----------------------------------------------------------------------
+# DELETE CHAT (and cascade its messages)
+# ----------------------------------------------------------------------
+@chat_bp.route('/api/chats/<chat_id>', methods=['DELETE'])
+@jwt_required()
+def delete_chat_endpoint(chat_id):
+    user_id = get_jwt_identity()
+
+    # Verify ownership & delete
+    if not delete_chat(chat_id, user_id):
+        return jsonify({"error": "Chat not found or not owned by you"}), 404
+
+    return jsonify({"message": "Chat deleted"}), 200
+
+
+# ----------------------------------------------------------------------
+# EDIT MESSAGE (only user messages)
+# ----------------------------------------------------------------------
+@chat_bp.route('/api/chats/<chat_id>/messages/<message_id>', methods=['PATCH'])
+@jwt_required()
+def edit_message(chat_id, message_id):
+    user_id = get_jwt_identity()
+    payload = request.get_json(silent=True) or {}
+    content = payload.get('content')      # new text (optional)
+    role    = payload.get('role')         # usually stays "user" (optional)
+
+    if content is None and role is None:
+        return jsonify({"error": "Nothing to update"}), 400
+
+    if not update_message_role_content(message_id, chat_id, user_id, role, content):
+        return jsonify({"error": "Message not found, not a user message, or not owned by you"}), 404
+
+    return jsonify({"message": "Message updated"}), 200
