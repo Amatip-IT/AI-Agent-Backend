@@ -354,7 +354,7 @@ paths:
   # ========================================
   # Existing Chat Endpoints (unchanged, kept for context)
   # ========================================
-  /chats:
+  /api/chats:
     post:
       summary: Create a new chat
       security:
@@ -394,7 +394,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /chats/{chat_id}/messages:
+  /api/chats/{chat_id}/messages:
     post:
       summary: Send a message
       security:
