@@ -8,7 +8,7 @@ from config import Config
 # Extensions
 from extensions import mongo
 
-# Blueprints (no /api prefix)
+
 from auth import auth_bp
 from chat import chat_bp
 

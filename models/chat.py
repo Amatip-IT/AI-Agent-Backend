@@ -1,3 +1,5 @@
+# models/chat.py
+from bson import ObjectId
 from datetime import datetime
 from . import db
 
@@ -18,7 +20,13 @@ def get_user_chats(user_id: str):
     return [{**c, "_id": str(c["_id"]), "created_at": c["created_at"].isoformat()} for c in cursor]
 
 def get_chat(chat_id: str, user_id: str):
-    doc = chats.find_one({"_id": chat_id, "user_id": user_id})
+    """Return chat document by ID and user, converting ID properly."""
+    try:
+        chat_oid = ObjectId(chat_id)
+    except Exception:
+        return None
+
+    doc = chats.find_one({"_id": chat_oid, "user_id": user_id})
     if doc:
         doc["_id"] = str(doc["_id"])
     return doc

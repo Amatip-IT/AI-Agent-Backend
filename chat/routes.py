@@ -23,7 +23,7 @@ MODEL = "deepseek-chat"
 # CREATE CHAT
 # ----------------------------------------------------------------------
 # chat/routes.py
-@chat_bp.route('/chats', methods=['POST'])
+@chat_bp.route('/api/chats', methods=['POST'])
 @jwt_required()
 def new_chat():
     user_id = get_jwt_identity()
@@ -79,7 +79,7 @@ def new_chat():
 # ----------------------------------------------------------------------
 # LIST CHATS
 # ----------------------------------------------------------------------
-@chat_bp.route('/chats', methods=['GET'])
+@chat_bp.route('/api/chats', methods=['GET'])
 @jwt_required()
 def list_chats():
     user_id = get_jwt_identity()
@@ -89,7 +89,7 @@ def list_chats():
 # ----------------------------------------------------------------------
 # SEND MESSAGE (talk to DeepSeek)
 # ----------------------------------------------------------------------
-@chat_bp.route('/chats/<chat_id>/messages', methods=['POST'])
+@chat_bp.route('/api/chats/<chat_id>/messages', methods=['POST'])
 @jwt_required()
 def send_message(chat_id):
     user_id = get_jwt_identity()
@@ -141,7 +141,7 @@ def send_message(chat_id):
 # ----------------------------------------------------------------------
 # GET MESSAGES (conversation history)
 # ----------------------------------------------------------------------
-@chat_bp.route('/chats/<chat_id>/messages', methods=['GET'])
+@chat_bp.route('/api/chats/<chat_id>/messages', methods=['GET'])
 @jwt_required()
 def list_messages(chat_id):
     user_id = get_jwt_identity()
