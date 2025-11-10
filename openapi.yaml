@@ -6,7 +6,7 @@ info:
 servers:
   - url: http://localhost:5000
     description: Local dev server
-  - url: https://ai-agent-backend-gkwf.onrender.com
+  - url: https://ai-agent-backend-1-8x33.onrender.com
     description: Production server
     
 components:
