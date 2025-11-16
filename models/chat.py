@@ -1,73 +1,115 @@
 # models/chat.py
 from bson import ObjectId
 from datetime import datetime
-from . import db
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from . import db  # shared DB instance
+
+# Collections
 chats = db.chats
-messages = db.messages   # <-- add this line (same DB instance you use elsewhere)
+messages = db.messages
 
 
 # ----------------------------------------------------------------------
-# Existing functions (unchanged)
+# CREATE CHAT
 # ----------------------------------------------------------------------
-def create_chat(user_id: str, title: str = "New Chat"):
+def create_chat(user_id: str, title: str = "New Chat") -> Dict[str, Any]:
     doc = {
         "user_id": user_id,
-        "title": title,
-        "created_at": datetime.utcnow()
+        "title": title.strip(),
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
     }
     result = chats.insert_one(doc)
     doc["_id"] = str(result.inserted_id)
     return doc
 
 
-def get_user_chats(user_id: str):
-    cursor = chats.find({"user_id": user_id}).sort("created_at", -1)
-    return [
-        {**c, "_id": str(c["_id"]), "created_at": c["created_at"].isoformat()}
-        for c in cursor
-    ]
+# ----------------------------------------------------------------------
+# LIST USER CHATS (safe + fallback)
+# ----------------------------------------------------------------------
+def get_user_chats(user_id: str) -> List[Dict[str, Any]]:
+    cursor = chats.find({"user_id": user_id}).sort("updated_at", -1)
+    result = []
+
+    for c in cursor:
+        c["_id"] = str(c["_id"])
+        c["created_at"] = c["created_at"].isoformat()
+
+        # Safe updated_at
+        if "updated_at" not in c or c["updated_at"] is None:
+            updated_at = c["created_at"]
+        else:
+            updated_at = c["updated_at"]
+
+        c["updated_at"] = (
+            updated_at.isoformat()
+            if isinstance(updated_at, datetime)
+            else updated_at
+        )
+        result.append(c)
+
+    return result
 
 
-def get_chat(chat_id: str, user_id: str):
-    """Return chat document by ID and user, converting ID properly."""
+# ----------------------------------------------------------------------
+# GET SINGLE CHAT
+# ----------------------------------------------------------------------
+def get_chat(chat_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     try:
         chat_oid = ObjectId(chat_id)
     except Exception:
         return None
 
     doc = chats.find_one({"_id": chat_oid, "user_id": user_id})
-    if doc:
-        doc["_id"] = str(doc["_id"])
+    if not doc:
+        return None
+
+    doc["_id"] = str(doc["_id"])
+    doc["created_at"] = doc["created_at"].isoformat()
+
+    if "updated_at" not in doc or doc["updated_at"] is None:
+        doc["updated_at"] = doc["created_at"]
+    else:
+        doc["updated_at"] = doc["updated_at"].isoformat()
+
     return doc
 
 
 # ----------------------------------------------------------------------
-# NEW: Delete a chat + cascade its messages
+# DELETE CHAT + CASCADE
 # ----------------------------------------------------------------------
 def delete_chat(chat_id: str, user_id: str) -> bool:
-    """
-    Remove the chat if it belongs to the user.
-    All associated messages are also deleted (cascade).
-    Returns True on success, False otherwise.
-    """
     try:
         chat_oid = ObjectId(chat_id)
     except Exception:
         return False
 
-    # Delete the chat document (owner check)
     result = chats.delete_one({"_id": chat_oid, "user_id": user_id})
-    if not result.deleted_count:
+    if result.deleted_count == 0:
         return False
 
-    # Cascade-delete every message in this chat
     messages.delete_many({"chat_id": chat_oid})
     return True
 
 
 # ----------------------------------------------------------------------
-# NEW: Edit a user message (role & content)
+# UPDATE CHAT TITLE
+# ----------------------------------------------------------------------
+def update_chat_title(chat_id: str, new_title: str) -> bool:
+    try:
+        chat_oid = ObjectId(chat_id)
+    except Exception:
+        return False
+
+    result = chats.update_one(
+        {"_id": chat_oid},
+        {"$set": {"title": new_title.strip(), "updated_at": datetime.utcnow()}}
+    )
+    return result.modified_count > 0
+
+
+# ----------------------------------------------------------------------
+# EDIT USER MESSAGE
 # ----------------------------------------------------------------------
 def update_message_role_content(
     message_id: str,
@@ -76,40 +118,31 @@ def update_message_role_content(
     role: Optional[str] = None,
     content: Optional[str] = None,
 ) -> bool:
-    """
-    Update `role` and/or `content` of a **user** message.
-    Only the chat owner can edit a message that belongs to the chat.
-    Returns True if the message was modified, False otherwise.
-    """
     try:
         msg_oid = ObjectId(message_id)
         chat_oid = ObjectId(chat_id)
     except Exception:
         return False
 
-    # 1. Verify the message exists, is a user message, and belongs to the chat
     msg = messages.find_one(
         {"_id": msg_oid, "chat_id": chat_oid, "role": "user"}
     )
     if not msg:
         return False
 
-    # 2. Verify the chat belongs to the requesting user
     chat = chats.find_one({"_id": chat_oid, "user_id": user_id})
     if not chat:
         return False
 
-    # Build update payload
     update_fields = {}
     if role is not None:
         update_fields["role"] = role
     if content is not None:
-        update_fields["content"] = content
+        update_fields["content"] = content.strip()
 
     if not update_fields:
-        return True  # nothing to change
+        return True
 
-    # Apply update
     result = messages.update_one(
         {"_id": msg_oid},
         {"$set": update_fields}
