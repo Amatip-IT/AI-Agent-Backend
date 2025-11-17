@@ -2,12 +2,11 @@
 from bson import ObjectId
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from . import db  # shared DB instance
+from . import db
 
 # Collections
 chats = db.chats
 messages = db.messages
-
 
 # ----------------------------------------------------------------------
 # CREATE CHAT
@@ -23,9 +22,8 @@ def create_chat(user_id: str, title: str = "New Chat") -> Dict[str, Any]:
     doc["_id"] = str(result.inserted_id)
     return doc
 
-
 # ----------------------------------------------------------------------
-# LIST USER CHATS (safe + fallback)
+# LIST USER CHATS
 # ----------------------------------------------------------------------
 def get_user_chats(user_id: str) -> List[Dict[str, Any]]:
     cursor = chats.find({"user_id": user_id}).sort("updated_at", -1)
@@ -50,7 +48,6 @@ def get_user_chats(user_id: str) -> List[Dict[str, Any]]:
 
     return result
 
-
 # ----------------------------------------------------------------------
 # GET SINGLE CHAT
 # ----------------------------------------------------------------------
@@ -74,7 +71,6 @@ def get_chat(chat_id: str, user_id: str) -> Optional[Dict[str, Any]]:
 
     return doc
 
-
 # ----------------------------------------------------------------------
 # DELETE CHAT + CASCADE
 # ----------------------------------------------------------------------
@@ -91,7 +87,6 @@ def delete_chat(chat_id: str, user_id: str) -> bool:
     messages.delete_many({"chat_id": chat_oid})
     return True
 
-
 # ----------------------------------------------------------------------
 # UPDATE CHAT TITLE
 # ----------------------------------------------------------------------
@@ -106,7 +101,6 @@ def update_chat_title(chat_id: str, new_title: str) -> bool:
         {"$set": {"title": new_title.strip(), "updated_at": datetime.utcnow()}}
     )
     return result.modified_count > 0
-
 
 # ----------------------------------------------------------------------
 # EDIT USER MESSAGE
